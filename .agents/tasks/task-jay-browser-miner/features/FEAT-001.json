@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Rebuild JAY Network CLI Miner to use Puppeteer browser automation with injected Keplr wallet mock, replacing direct API/WebSocket mining approach.",
+  "status": "in_progress",
+  "steps": [
+    "Update package.json: replace ws dependency with @cosmjs/amino, @cosmjs/crypto, @cosmjs/encoding; keep puppeteer, chalk@4, dotenv. Add start script.",
+    "Create src/wallet.js - derive wallet address and keys from mnemonic using @cosmjs/amino (HD path m/44'/118'/0'/0/0, bech32 prefix yjay)",
+    "Create src/keplr-mock.js - generates injectable JavaScript string for window.keplr mock using wallet info",
+    "Create src/browser-miner.js - Puppeteer automation: launch browser, inject Keplr, navigate to mining site, handle security challenge, connect wallet, monitor mining stats via CDP WebSocket interception and DOM polling",
+    "Rewrite src/index.js - new entry point with CLI args (--headless=false, --help), banner, mnemonic security warning, launches browser miner",
+    "Remove old files: src/miner.js, src/worker.js, src/config.js",
+    "Update .env.example with MNEMONIC and THREADS",
+    "Update README.md with new instructions"
+  ],
+  "acceptance_criteria": [
+    "npm install completes without errors",
+    "node src/index.js --help shows usage information",
+    "src/wallet.js correctly derives yjay-prefixed address from mnemonic",
+    "src/keplr-mock.js generates valid injectable script string",
+    "src/browser-miner.js launches Puppeteer and injects Keplr mock",
+    "Old files (miner.js, worker.js, config.js) are removed",
+    "Mnemonic is never logged or displayed"
+  ],
+  "verification": [
+    "Run npm install and confirm exit code 0",
+    "Run node src/index.js --help and confirm it prints usage info",
+    "Run node -e \"const {deriveWallet} = require('./src/wallet.js'); deriveWallet('abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about').then(w => { console.log(w.address); if(!w.address.startsWith('yjay')) process.exit(1); })\" and confirm yjay prefix",
+    "Run node -e \"const {createKeplrMockScript} = require('./src/keplr-mock.js'); const s = createKeplrMockScript({address:'yjaytest',pubKey:'aabb',algo:'secp256k1'}); if(!s.includes('window.keplr')) process.exit(1); console.log('OK')\"",
+    "Run node -e \"const {BrowserMiner} = require('./src/browser-miner.js'); console.log(typeof BrowserMiner)\" to confirm module loads"
+  ],
+  "blocked_reason": null,
+  "findings": null
+}

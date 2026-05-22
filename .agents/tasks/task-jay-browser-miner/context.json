@@ -1,0 +1,12 @@
+{
+  "project_type": "Node.js CLI application - Browser-automated mining tool",
+  "language": "JavaScript (Node.js)",
+  "build_system": "npm with no build step (plain JS, no transpilation)",
+  "test_framework": "Manual verification - no test framework",
+  "build_command": "npm install",
+  "test_command": "node src/index.js --help",
+  "verification_instructions": "1. Run npm install. 2. Run node src/index.js --help. 3. Verify wallet derivation works. 4. Verify keplr mock generates valid script.",
+  "setup_instructions": "1. cd /projects/sandbox/JAY-Mining. 2. npm install. 3. Copy .env.example to .env and set MNEMONIC. 4. Run node src/index.js.",
+  "environment_constraints": "Node.js v18.20.8. Full network access (OPEN_INTERNET). Puppeteer with Chrome already installed from previous feature.",
+  "key_patterns": "CommonJS modules, chalk@4 for colored output, dotenv for config, @cosmjs/amino for wallet derivation."
+}

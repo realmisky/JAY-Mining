@@ -1,129 +1,136 @@
 #!/usr/bin/env node
 'use strict';
 
+require('dotenv').config();
 const chalk = require('chalk');
-const { loadConfig } = require('./config');
-const { Miner } = require('./miner');
-const { formatHashrate, formatTime } = require('./utils');
+const { deriveWallet } = require('./wallet');
+const { BrowserMiner } = require('./browser-miner');
 
 function showHelp() {
   console.log(`
-${chalk.bold.cyan('JAY Network CLI Miner')}
+${chalk.bold.cyan('JAY Network Browser Miner v2.0')}
 
 ${chalk.bold('Usage:')}
   node src/index.js [options]
 
 ${chalk.bold('Options:')}
-  --wallet=<address>    Wallet address (must start with "yjay")
-  --threads=<n>         Number of mining threads (default: CPU count)
-  --miner-id=<id>       Custom miner ID (default: auto-generated)
-  --help, -h            Show this help message
+  --headless=false    Show the browser window (for debugging)
+  --help, -h          Show this help message
 
 ${chalk.bold('Environment Variables (.env):')}
-  WALLET_ADDRESS        Wallet address
-  THREADS               Number of threads
-  MINER_ID              Miner ID
+  MNEMONIC            Your wallet mnemonic phrase (12 or 24 words)
+  THREADS             Number of threads hint (default: 4)
+
+${chalk.bold('How it works:')}
+  1. Derives your wallet address from the mnemonic (yjay prefix)
+  2. Launches a browser with an injected Keplr wallet mock
+  3. Navigates to the JAY mining site
+  4. Connects the wallet and mining starts automatically
+  5. Monitors mining stats via WebSocket interception and DOM polling
 
 ${chalk.bold('Examples:')}
-  node src/index.js --wallet=yjay162huaz2qdsdpnjs5qlhtqcqnesr2ru0s0dy9wd
-  node src/index.js --wallet=yjay162huaz2qdsdpnjs5qlhtqcqnesr2ru0s0dy9wd --threads=4
+  node src/index.js
+  node src/index.js --headless=false
+  MNEMONIC="word1 word2 ..." node src/index.js
 `);
 }
 
-function showBanner(config) {
-  console.log(chalk.cyan(`
-   ╔══════════════════════════════════════╗
-   ║      JAY Network CLI Miner v1.0     ║
-   ╚══════════════════════════════════════╝
-  `));
-  console.log(chalk.white(`  Wallet:   ${chalk.green(config.wallet)}`));
-  console.log(chalk.white(`  Threads:  ${chalk.green(config.threads)}`));
-  console.log(chalk.white(`  Miner ID: ${chalk.green(config.minerId || 'auto-generate')}`));
-  console.log('');
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const options = {
+    help: false,
+    headless: true
+  };
+
+  for (const arg of args) {
+    if (arg === '--help' || arg === '-h') {
+      options.help = true;
+    } else if (arg === '--headless=false') {
+      options.headless = false;
+    } else if (arg === '--headless=true') {
+      options.headless = true;
+    }
+  }
+
+  return options;
 }
 
-function main() {
-  const config = loadConfig();
+function showBanner() {
+  console.log(chalk.cyan(`
+   +======================================+
+   |    JAY Network Browser Miner v2.0    |
+   +======================================+
+  `));
+}
 
-  if (config.help) {
+async function main() {
+  const options = parseArgs();
+
+  if (options.help) {
     showHelp();
     process.exit(0);
   }
 
-  showBanner(config);
+  showBanner();
 
-  const miner = new Miner(config);
-  let hashrateInterval = null;
+  // Security warning
+  console.log(chalk.red.bold('  WARNING: Never share your mnemonic phrase with anyone!'));
+  console.log('');
 
-  // Status messages
-  miner.on('status', (msg) => {
-    console.log(chalk.gray(`[${timestamp()}]`) + chalk.white(` ${msg}`));
+  // Get mnemonic from environment
+  const mnemonic = process.env.MNEMONIC;
+  if (!mnemonic) {
+    console.log(chalk.red('[Error] MNEMONIC not set.'));
+    console.log(chalk.yellow('Set it in your .env file or as an environment variable:'));
+    console.log(chalk.gray('  MNEMONIC="your twelve or twenty four word phrase" node src/index.js'));
+    process.exit(1);
+  }
+
+  // Validate mnemonic word count
+  const wordCount = mnemonic.trim().split(/\s+/).length;
+  if (wordCount !== 12 && wordCount !== 24) {
+    console.log(chalk.red(`[Error] Mnemonic must be 12 or 24 words (got ${wordCount})`));
+    process.exit(1);
+  }
+
+  // Derive wallet
+  console.log(chalk.cyan('[*] Deriving wallet from mnemonic...'));
+  let walletInfo;
+  try {
+    walletInfo = await deriveWallet(mnemonic);
+  } catch (err) {
+    console.log(chalk.red(`[Error] Failed to derive wallet: ${err.message}`));
+    process.exit(1);
+  }
+
+  console.log(chalk.green(`[+] Wallet address: ${walletInfo.address}`));
+  console.log(chalk.gray(`    Algorithm: ${walletInfo.algo}`));
+  console.log('');
+
+  const threads = parseInt(process.env.THREADS, 10) || 4;
+  console.log(chalk.white(`  Mode:     ${options.headless ? 'Headless' : 'Visible browser'}`));
+  console.log(chalk.white(`  Threads:  ${threads} (hint for display)`));
+  console.log('');
+
+  // Launch browser miner
+  const miner = new BrowserMiner({
+    walletInfo,
+    headless: options.headless,
+    threads
   });
-
-  // Connected
-  miner.on('connected', (url) => {
-    console.log(chalk.gray(`[${timestamp()}]`) + chalk.green(` Connected to pool: ${url}`));
-  });
-
-  // Disconnected
-  miner.on('disconnected', (reason) => {
-    console.log(chalk.gray(`[${timestamp()}]`) + chalk.yellow(` Disconnected: ${reason}`));
-  });
-
-  // New work received
-  miner.on('new_work', (payload) => {
-    console.log(chalk.gray(`[${timestamp()}]`) + chalk.cyan(` New work: job=${payload.jobId} difficulty=${payload.difficulty} height=${payload.networkHeight}`));
-  });
-
-  // Share found
-  miner.on('share_found', (share) => {
-    console.log(chalk.gray(`[${timestamp()}]`) + chalk.magenta(` Share found: nonce=${share.nonce} hash=${share.hash.substring(0, 16)}...`));
-  });
-
-  // Share accepted
-  miner.on('share_accepted', (payload) => {
-    console.log(chalk.gray(`[${timestamp()}]`) + chalk.green(` Share accepted! Total shares: ${payload.shares} | Pool miners: ${payload.poolMiners}`));
-  });
-
-  // Pool stats
-  miner.on('pool_stats', (payload) => {
-    console.log(chalk.gray(`[${timestamp()}]`) + chalk.cyan(` Pool stats: hashrate=${payload.totalHashrate.toFixed(2)} H/s | miners=${payload.miners} | efficiency=${payload.efficiency}%`));
-  });
-
-  // Network block
-  miner.on('network_block', (payload) => {
-    console.log(chalk.gray(`[${timestamp()}]`) + chalk.yellow(` New block: height=${payload.height} hash=${payload.hash.substring(0, 16)}...`));
-  });
-
-  // Errors
-  miner.on('error', (msg) => {
-    console.log(chalk.gray(`[${timestamp()}]`) + chalk.red(` Error: ${msg}`));
-  });
-
-  // Hashrate display every 5 seconds
-  hashrateInterval = setInterval(() => {
-    const rate = miner.getHashrate();
-    const uptime = formatTime(Date.now() - miner.startTime);
-    console.log(chalk.gray(`[${timestamp()}]`) + chalk.white(` Hashrate: ${chalk.bold.green(formatHashrate(rate))} | Shares: ${miner.totalShares}/${miner.acceptedShares} | Uptime: ${uptime}`));
-  }, 5000);
 
   // Graceful shutdown
-  process.on('SIGINT', () => {
-    console.log(chalk.gray(`\n[${timestamp()}]`) + chalk.yellow(' Shutting down...'));
-    clearInterval(hashrateInterval);
-    miner.stop();
-    setTimeout(() => {
-      console.log(chalk.green('Goodbye!'));
-      process.exit(0);
-    }, 500);
+  process.on('SIGINT', async () => {
+    console.log(chalk.yellow('\n[*] Shutting down...'));
+    await miner.stop();
+    console.log(chalk.green('Goodbye!'));
+    process.exit(0);
   });
 
-  // Start mining
-  miner.start();
+  await miner.start();
 }
 
-function timestamp() {
-  return new Date().toLocaleTimeString();
-}
-
-main();
+main().catch((err) => {
+  console.error(chalk.red(`[Fatal] ${err.message}`));
+  process.exit(1);
+});

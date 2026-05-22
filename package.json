@@ -1,7 +1,7 @@
 {
   "name": "jay-miner",
-  "version": "1.0.0",
-  "description": "JAY Network CLI Proof-of-Work Miner",
+  "version": "2.0.0",
+  "description": "JAY Network Browser-Automated CLI Miner with Keplr Wallet Injection",
   "main": "src/index.js",
   "bin": {
     "jay-miner": "src/index.js"
@@ -9,12 +9,14 @@
   "scripts": {
     "start": "node src/index.js"
   },
-  "keywords": ["jay", "mining", "proof-of-work", "cryptocurrency"],
+  "keywords": ["jay", "mining", "cryptocurrency", "puppeteer", "keplr"],
   "license": "MIT",
   "dependencies": {
+    "@cosmjs/amino": "^0.32.4",
+    "@cosmjs/crypto": "^0.32.4",
+    "@cosmjs/encoding": "^0.32.4",
     "chalk": "^4.1.2",
     "dotenv": "^16.4.5",
-    "puppeteer": "^22.12.0",
-    "ws": "^8.17.0"
+    "puppeteer": "^22.12.0"
   }
 }

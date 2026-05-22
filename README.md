@@ -1,83 +1,92 @@
-# JAY Network CLI Miner
+# JAY Network Browser Miner
 
-A command-line Proof-of-Work miner for the JAY Network. Connects to the JAY mining pool via WebSocket, performs multi-threaded SHA-256 mining, and submits valid shares.
-
-## Features
-
-- Multi-threaded SHA-256 mining using Node.js worker_threads
-- WebSocket connection to JAY Network mining pool
-- Automatic reconnection with exponential backoff
-- Colored CLI output with live hashrate display
-- Configurable via CLI arguments or .env file
-- Graceful shutdown on Ctrl+C
-
-## Requirements
-
-- Node.js 18 or higher
-- npm
-
-## Setup
-
-1. Install dependencies:
-
-```bash
-npm install
-```
-
-2. Configure your wallet address. Either copy `.env.example` to `.env` and edit it:
-
-```bash
-cp .env.example .env
-# Edit .env and set WALLET_ADDRESS=yjay1yourwalletaddress
-```
-
-Or pass it directly via CLI argument.
-
-3. Start mining:
-
-```bash
-npm start
-```
-
-## CLI Usage
-
-```bash
-node src/index.js --wallet=yjay162huaz2qdsdpnjs5qlhtqcqnesr2ru0s0dy9wd --threads=4
-```
-
-### Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--wallet=<address>` | JAY wallet address (must start with "yjay") | Required |
-| `--threads=<n>` | Number of mining threads | CPU core count |
-| `--miner-id=<id>` | Custom miner identifier | Auto-generated |
-| `--help, -h` | Show help message | - |
-
-### Environment Variables
-
-Set these in a `.env` file in the project root:
-
-| Variable | Description |
-|----------|-------------|
-| `WALLET_ADDRESS` | JAY wallet address |
-| `THREADS` | Number of mining threads |
-| `MINER_ID` | Custom miner ID |
+A CLI tool that automates browser-based mining on the JAY Network using Puppeteer with an injected Keplr wallet mock.
 
 ## How It Works
 
-1. The miner fetches a WebSocket token from the JAY Network mining API
-2. It connects to the mining pool via WebSocket
-3. When a new work message arrives, the miner distributes the nonce range across worker threads
-4. Each worker computes SHA-256 hashes and checks them against the difficulty target
-5. Valid shares (hashes below the target) are submitted to the pool
-6. The pool responds with share acceptance and periodically broadcasts pool stats and new blocks
+1. Derives your wallet address from your mnemonic phrase (BIP44 path `m/44'/118'/0'/0/0`, bech32 prefix `yjay`)
+2. Launches a headless Chrome browser with Puppeteer
+3. Injects a mock Keplr wallet provider into the page before any scripts run
+4. Navigates to `https://mining.thejaynetwork.com/`
+5. Waits for the Vercel security challenge to resolve
+6. Connects the wallet (the mock Keplr responds to the site's requests)
+7. Mining starts automatically in the browser
+8. Monitors mining stats via WebSocket frame interception (CDP) and DOM polling
+
+The browser itself handles all the Proof-of-Work computation. This tool simply automates the wallet connection flow that would normally require the Keplr browser extension.
+
+## Setup
+
+```bash
+# Install dependencies
+npm install
+
+# Copy the example env file and add your mnemonic
+cp .env.example .env
+# Edit .env and set your MNEMONIC
+```
+
+## Configuration
+
+Set these in your `.env` file:
+
+| Variable   | Description                                | Required |
+|------------|--------------------------------------------|----------|
+| `MNEMONIC` | Your 12 or 24 word mnemonic phrase         | Yes      |
+| `THREADS`  | Thread count hint (default: 4)             | No       |
+
+## Usage
+
+```bash
+# Start mining (headless mode)
+node src/index.js
+
+# Start with visible browser window (for debugging)
+node src/index.js --headless=false
+
+# Show help
+node src/index.js --help
+```
+
+## CLI Options
+
+| Option            | Description                          |
+|-------------------|--------------------------------------|
+| `--headless=false`| Show the browser window for debugging|
+| `--help`, `-h`   | Show help message                    |
+
+## Security
+
+- Your mnemonic phrase is never logged or displayed
+- The mnemonic is only used locally to derive wallet keys
+- Keys never leave your machine
+- Never share your mnemonic phrase with anyone
 
 ## Dependencies
 
-- [ws](https://www.npmjs.com/package/ws) - WebSocket client
-- [dotenv](https://www.npmjs.com/package/dotenv) - Environment variable loading
-- [chalk](https://www.npmjs.com/package/chalk) (v4) - Terminal color output
+- `puppeteer` - Headless Chrome browser automation
+- `@cosmjs/amino` - Cosmos SDK wallet derivation
+- `@cosmjs/crypto` - Cryptographic primitives for key derivation
+- `@cosmjs/encoding` - Encoding utilities
+- `chalk@4` - Colored terminal output
+- `dotenv` - Environment variable loading
+
+## Chain Configuration
+
+- Chain ID: `thejaynetwork-mainnet`
+- RPC: `https://rpc-jayn.winnode.xyz`
+- REST: `https://api-jayn.winnode.xyz`
+- Bech32 Prefix: `yjay`
+- Coin Type: 118
+- Currency: JAY (ujay, 6 decimals)
+
+## Troubleshooting
+
+**Chrome not found**: Run `npx puppeteer browsers install chrome` to download the Chrome binary.
+
+**Security challenge timeout**: The Vercel challenge can take up to 60 seconds. If it consistently fails, try running with `--headless=false` to see what is happening.
+
+**Wallet not connecting**: Use `--headless=false` to watch the browser. The site may have changed its UI, requiring selector updates.
 
 ## License
 

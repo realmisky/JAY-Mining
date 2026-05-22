@@ -1,0 +1,8 @@
+{
+  "task_id": "task-jay-browser-miner",
+  "task_description": "Rebuild JAY Network CLI Miner to use Puppeteer browser automation with injected Keplr wallet, replacing the direct WebSocket PoW approach.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001"],
+  "blocked_reason": null,
+  "verification": null
+}

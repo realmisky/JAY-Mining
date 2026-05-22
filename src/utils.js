@@ -1,29 +1,8 @@
 'use strict';
 
-const crypto = require('crypto');
-
-function randomAlphanumeric(length) {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  const bytes = crypto.randomBytes(length);
-  for (let i = 0; i < length; i++) {
-    result += chars[bytes[i] % chars.length];
-  }
-  return result;
-}
-
-function generateSessionId() {
-  return `session_${Date.now()}_${randomAlphanumeric(11)}`;
-}
-
-function generateDeviceId() {
-  return `device_${Date.now()}_${randomAlphanumeric(11)}`;
-}
-
-function generateMinerId() {
-  return crypto.randomBytes(8).toString('hex');
-}
-
+/**
+ * Format a hashrate value into a human-readable string.
+ */
 function formatHashrate(hashesPerSecond) {
   if (hashesPerSecond >= 1000000) {
     return `${(hashesPerSecond / 1000000).toFixed(2)} MH/s`;
@@ -33,6 +12,9 @@ function formatHashrate(hashesPerSecond) {
   return `${hashesPerSecond.toFixed(2)} H/s`;
 }
 
+/**
+ * Format a duration in milliseconds to a human-readable string.
+ */
 function formatTime(ms) {
   const seconds = Math.floor(ms / 1000) % 60;
   const minutes = Math.floor(ms / 60000) % 60;
@@ -47,9 +29,6 @@ function formatTime(ms) {
 }
 
 module.exports = {
-  generateSessionId,
-  generateDeviceId,
-  generateMinerId,
   formatHashrate,
   formatTime
 };
