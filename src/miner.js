@@ -58,7 +58,13 @@ class Miner extends EventEmitter {
   }
 
   connect(tokenData) {
+    if (!tokenData || typeof tokenData.wsUrl !== 'string') {
+      throw new Error('Token response missing wsUrl field');
+    }
     const wsUrl = tokenData.wsUrl;
+    if (!wsUrl.startsWith('wss://')) {
+      throw new Error(`Invalid WebSocket URL: must start with wss://, got "${wsUrl}"`);
+    }
     this.emit('status', `Connecting to ${wsUrl}...`);
 
     this.ws = new WebSocket(wsUrl);
@@ -211,7 +217,6 @@ class Miner extends EventEmitter {
   stopWorkers() {
     for (const worker of this.workers) {
       try {
-        worker.postMessage({ type: 'stop' });
         worker.terminate();
       } catch (e) {
         // Worker may already be terminated
@@ -228,10 +233,11 @@ class Miner extends EventEmitter {
   scheduleReconnect() {
     if (!this.shouldRun) return;
 
-    this.emit('status', `Reconnecting in ${this.reconnectDelay / 1000}s...`);
+    const delay = this.reconnectDelay;
+    this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
+    this.emit('status', `Reconnecting in ${delay / 1000}s...`);
     setTimeout(async () => {
       if (!this.shouldRun) return;
-      this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
       try {
         const tokenData = await this.fetchToken();
         this.connect(tokenData);
@@ -239,7 +245,7 @@ class Miner extends EventEmitter {
         this.emit('error', `Reconnect failed: ${err.message}`);
         this.scheduleReconnect();
       }
-    }, this.reconnectDelay);
+    }, delay);
   }
 
   getHashrate() {
