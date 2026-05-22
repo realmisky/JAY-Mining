@@ -45,24 +45,87 @@ class Miner extends EventEmitter {
   }
 
   async fetchToken() {
-    const response = await fetch('https://mining.thejaynetwork.com/api/ws-token', {
-      method: 'POST',
-      headers: {
-        'Accept': '*/*',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br, zstd',
-        'Origin': 'https://mining.thejaynetwork.com',
-        'Referer': 'https://mining.thejaynetwork.com/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        'Content-Length': '0'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Token request failed with status ${response.status}`);
+    let puppeteer;
+    try {
+      puppeteer = require('puppeteer');
+    } catch (err) {
+      throw new Error(
+        'Puppeteer is not installed. Run "npm install" to install dependencies. ' +
+        'Puppeteer requires a compatible version of Chrome/Chromium.'
+      );
     }
 
-    return response.json();
+    this.emit('status', 'Launching browser to bypass security challenge...');
+
+    let browser;
+    try {
+      browser = await puppeteer.launch({
+        headless: 'new',
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']
+      });
+
+      const page = await browser.newPage();
+      await page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
+      );
+
+      this.emit('status', 'Navigating to mining site and solving security challenge...');
+
+      // Navigate to the site and wait for initial load
+      await page.goto('https://mining.thejaynetwork.com/', {
+        waitUntil: 'networkidle2',
+        timeout: 60000
+      });
+
+      // Wait for the Vercel Security Checkpoint to resolve
+      // The challenge page has title "Vercel Security Checkpoint" - wait for it to change
+      const maxWaitTime = 30000;
+      const pollInterval = 1000;
+      const startWait = Date.now();
+
+      while (Date.now() - startWait < maxWaitTime) {
+        const title = await page.title();
+        if (!title.includes('Vercel Security Checkpoint')) {
+          break;
+        }
+        this.emit('status', 'Waiting for security challenge to resolve...');
+        await new Promise(r => setTimeout(r, pollInterval));
+      }
+
+      // Additional wait for page JS to settle after challenge resolution
+      await new Promise(r => setTimeout(r, 2000));
+
+      this.emit('status', 'Security challenge passed. Requesting token...');
+
+      // Make the token request from within the browser context (inherits cookies/session)
+      const tokenData = await page.evaluate(async () => {
+        const res = await fetch('/api/ws-token', {
+          method: 'POST',
+          headers: {
+            'Accept': '*/*',
+            'Content-Length': '0'
+          }
+        });
+        if (!res.ok) {
+          throw new Error(`Token request failed with status ${res.status}`);
+        }
+        return res.json();
+      });
+
+      return tokenData;
+    } catch (err) {
+      if (err.message.includes('Could not find Chrome') || err.message.includes('Failed to launch')) {
+        throw new Error(
+          'Could not launch Chrome/Chromium. Ensure Puppeteer is installed correctly. ' +
+          'You may need to run "npx puppeteer browsers install chrome" to download the browser binary.'
+        );
+      }
+      throw err;
+    } finally {
+      if (browser) {
+        await browser.close();
+      }
+    }
   }
 
   connect(tokenData) {
