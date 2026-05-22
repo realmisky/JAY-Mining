@@ -1,0 +1,7 @@
+{
+  "task_id": "task-jay-cli-miner",
+  "task_description": "Build a complete CLI Proof-of-Work mining tool for the JAY Network. The tool connects to the mining pool via WebSocket, receives work, computes SHA-256 hashes using multiple worker threads, and submits valid shares. It features colored CLI output with hashrate display, auto-reconnection, and configurable threads/wallet.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001"],
+  "blocked_reason": null
+}

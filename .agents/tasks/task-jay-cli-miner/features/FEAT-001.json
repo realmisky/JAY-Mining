@@ -1,0 +1,35 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Implement the complete JAY Network CLI Proof-of-Work miner with WebSocket connection, multi-threaded SHA-256 mining, share submission, and colored CLI output.",
+  "status": "in_progress",
+  "steps": [
+    "Create package.json with name 'jay-miner', version '1.0.0', main 'src/index.js', scripts (start: 'node src/index.js'), dependencies: ws, dotenv, chalk (use chalk@4 for CommonJS compat with Node 18). Set bin field to allow global install.",
+    "Create src/config.js - Load dotenv, parse CLI args (--wallet, --threads, --miner-id), merge with env vars (WALLET_ADDRESS, THREADS, MINER_ID). Default threads to os.cpus().length. Validate wallet starts with 'yjay'. Export config object.",
+    "Create src/utils.js - Helper functions: generateSessionId() returns 'session_{timestamp}_{random}', generateDeviceId() returns 'device_{timestamp}_{random}', generateMinerId() returns 16-char hex random string, formatHashrate(h) returns human-readable H/s or KH/s, formatTime(ms) returns duration string.",
+    "Create src/worker.js - Worker thread that receives {jobId, prevHash, timestamp, difficulty, nonceStart, nonceEnd, target} via parentPort messages. Computes SHA-256 of (prevHash + jobId + nonce + timestamp) trying nonces from nonceStart to nonceEnd. When hash (as BigInt from hex) is below target (parsed from hex), post message back with {nonce, hash, jobId}. Also periodically post {type:'hashcount', count} every 10000 hashes for hashrate tracking. Listen for 'stop' messages to abort current job.",
+    "Create src/miner.js - Main mining class that: (1) Fetches WS token from https://mining.thejaynetwork.com/api/ws-token using native fetch or https module. (2) Connects WebSocket to the wsUrl returned. (3) Sends 'status' message with wallet, sessionId, deviceId. (4) On 'new_work' message: stops existing workers, splits nonce range (0 to 2^32) across N worker threads, starts them. (5) When worker finds valid share: sends 'submit_share' with nonce, hash, timestamp, jobId, difficulty, sessionId, deviceId, minerId. (6) Handles 'share_accepted', 'pool_stats', 'network_block' messages by emitting events. (7) Sends ping every 30 seconds. (8) Auto-reconnects on close/error with exponential backoff. (9) Tracks hashrate from worker hashcount reports.",
+    "Create src/index.js - Entry point: parse args, load config, display banner with JAY Network branding, instantiate Miner, wire up event handlers to display colored output using chalk (green for accepted shares, cyan for pool stats, yellow for new blocks, red for errors). Show live hashrate updates every 5 seconds. Handle SIGINT for graceful shutdown (stop workers, close WebSocket).",
+    "Create .env.example with WALLET_ADDRESS=yjay1yourwalletaddresshere, THREADS= (blank for auto), MINER_ID= (blank for auto-generate).",
+    "Create README.md with project description, setup instructions (npm install, configure .env, npm start), CLI usage (node src/index.js --wallet=yjay... --threads=4), explanation of what the miner does, and dependencies list."
+  ],
+  "acceptance_criteria": [
+    "Running 'npm install' completes without errors",
+    "Running 'node src/index.js --help' shows usage information without crashing",
+    "Running 'node src/index.js --wallet=yjay162huaz2qdsdpnjs5qlhtqcqnesr2ru0s0dy9wd --threads=2' connects to the pool and begins mining (fetches token, connects WS, receives work, spawns workers)",
+    "Worker threads correctly compute SHA-256 hashes and detect valid shares below target difficulty",
+    "The CLI displays colored output: hashrate, accepted shares, pool stats, connection status",
+    "Auto-reconnect works when WebSocket connection drops",
+    "Graceful shutdown on Ctrl+C stops workers and closes connections"
+  ],
+  "verification": [
+    "Run 'cd /projects/sandbox/JAY-Mining && npm install' and confirm exit code 0",
+    "Run 'node src/index.js --help' and confirm it prints usage info",
+    "Run 'node -e \"const w = require('./src/worker.js')\"' to confirm worker module loads (syntax check)",
+    "Run 'node -e \"const c = require('./src/config.js')\"' to confirm config module loads",
+    "Run 'node -e \"const u = require('./src/utils.js'); console.log(u.generateSessionId()); console.log(u.generateDeviceId()); console.log(u.generateMinerId())\"' to confirm utils work",
+    "Run 'timeout 15 node src/index.js --wallet=yjay162huaz2qdsdpnjs5qlhtqcqnesr2ru0s0dy9wd --threads=2 2>&1' and confirm it connects and starts mining (look for connection success, work received, or hashrate output)"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

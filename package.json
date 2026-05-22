@@ -1,0 +1,19 @@
+{
+  "name": "jay-miner",
+  "version": "1.0.0",
+  "description": "JAY Network CLI Proof-of-Work Miner",
+  "main": "src/index.js",
+  "bin": {
+    "jay-miner": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "keywords": ["jay", "mining", "proof-of-work", "cryptocurrency"],
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "dotenv": "^16.4.5",
+    "ws": "^8.17.0"
+  }
+}
