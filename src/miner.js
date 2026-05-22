@@ -47,7 +47,12 @@ class Miner extends EventEmitter {
   async fetchToken() {
     const response = await fetch('https://mining.thejaynetwork.com/api/ws-token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': 'https://mining.thejaynetwork.com',
+        'Referer': 'https://mining.thejaynetwork.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
+      }
     });
 
     if (!response.ok) {
